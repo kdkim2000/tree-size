@@ -40,5 +40,20 @@
     "PYTHONUTF8": "1",
     "PYTHONDONTWRITEBYTECODE": "1",
     "TREESIZE_LOG_LEVEL": "INFO"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/journal_hook.py",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ]
   }
 }

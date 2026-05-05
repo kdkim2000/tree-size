@@ -54,13 +54,15 @@
 
 | 경로 | 역할 |
 |------|------|
-| `.claude/settings.json` | 프로젝트 설정(권한, 환경변수, hooks) — 팀 공유 |
+| `.claude/settings.json` | 프로젝트 설정(권한, 환경변수, Stop hook) — 팀 공유 |
 | `.claude/settings.local.json` | 개인 설정 — `.gitignore` |
-| `.claude/agents/*.md` | Sub-agent 정의 파일 |
-| `.claude/commands/*.md` | 사용자 정의 슬래시 커맨드 |
+| `.claude/agents/*.md` | Sub-agent 정의 파일 (6개 — journal-engineer 포함) |
+| `.claude/commands/*.md` | 사용자 정의 슬래시 커맨드 (`/journal` 포함) |
 | `.claude/skills/*/SKILL.md` | 프로젝트 전용 Skill |
 | `.mcp.json` | MCP 서버 설정 (팀 공유, repo root) |
 | `CLAUDE.md` | 항상 자동 로드되는 컨텍스트 — 규칙 요약 + 포인터 |
+| `scripts/journal_hook.py` | Stop 훅 스크립트 — 세션 종료 시 activity.log 기록 |
+| `docs/journal/` | 구조화 저널 (YYYY-MM-DD-NNN.md) + activity.log |
 
 ### 2.3 파일 디렉토리 구조
 
