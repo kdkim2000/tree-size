@@ -1,0 +1,25 @@
+venv/
+build/
+dist/
+*.spec.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Claude Code (개인 설정만)
+.claude/settings.local.json
+
+# Secrets
+.env
+*.pem
+
+# Logs
+logs/
+*.log
