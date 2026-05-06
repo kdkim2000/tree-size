@@ -1162,4 +1162,640 @@ $ claude
                                                                                                                                                                            ⧉ I  JOURNAL.m   
                                                                                                                                                                                             
 Resume this session with:
-claude --resume 4abd2651-2e3b-4724-be8d-67f82994b020                              
+claude --resume 4abd2651-2e3b-4724-be8d-67f82994b020    
+
+
+❯ /model                                                                                                                                                                                    
+  ⎿  Set model to Haiku 4.5 
+                                                                                                                                                                                            
+❯ 계속 진행하라.                                                                                                                                                                            
+                                                                                                                                                                                        
+● M1-B 진행 상황 확인 후 계속하겠습니다.                                                                                                                                                    
+                                                                                                                                                                                          
+  Read 1 file, listed 1 directory (ctrl+o to expand)                                                                                                                                        
+                                                                                                                                                                                            
+● M1-B 파일들이 일부 구현됨. 현재 상태 확인:                                                                                                                                                
+                                                                                                                                                                                            
+  Read 2 files (ctrl+o to expand)                                                                                                                                                         
+                                                                                                                                                                                            
+● M1-B 파일들이 구현되어 있습니다. 테스트 실행하여 현재 상태 확인:                                                                                                                          
+                                                   
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m pytest tests/ui/ -v --tb=short 2>&1 | head -50)                                                                 
+  ⎿  ============================= test session starts =============================                                                                                                        
+     platform win32 -- Python 3.11.0, pytest-9.0.3, pluggy-1.6.0 -- E:\apps\tree-size\venv\Scripts\python.exe                                                                               
+     cachedir: .pytest_cache                                                                                                                                                                
+     … +25 lines (ctrl+o to expand)                                                                                                                                                         
+                                                                                                                                                                                            
+● M1-B 완료 확인:                                                                                                                                                                           
+                                                                                                                                                                                            
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m mypy src/tree_size/ui/ src/tree_size/controllers/ 2>&1)                                                         
+  ⎿  Error: Exit code 1                                                                                                                                                                     
+     src\tree_size\ui\tree_model.py:70: error: No overload variant of "QModelIndex" matches argument type "QPersistentModelIndex"  [call-overload]                                          
+     src\tree_size\ui\tree_model.py:70: note: Possible overload variants:                                                                                                                   
+     src\tree_size\ui\tree_model.py:70: note:     def QModelIndex() -> QModelIndex                                                                                                        
+     src\tree_size\ui\tree_model.py:70: note:     def QModelIndex(QModelIndex, /) -> QModelIndex                                                                                            
+     src\tree_size\ui\tree_model.py:84: error: No overload variant of "QModelIndex" matches argument type "QPersistentModelIndex"  [call-overload]                                          
+     src\tree_size\ui\tree_model.py:84: note: Possible overload variants:                                                                                                                   
+     src\tree_size\ui\tree_model.py:84: note:     def QModelIndex() -> QModelIndex                                                                                                          
+     src\tree_size\ui\tree_model.py:84: note:     def QModelIndex(QModelIndex, /) -> QModelIndex                                                                                            
+     src\tree_size\ui\tree_model.py:113: error: No overload variant of "QModelIndex" matches argument type "QPersistentModelIndex"  [call-overload]                                         
+     … +4 lines (ctrl+o to expand)                                                                                                                                                          
+                                                                                                                                                                                            
+  Read 1 file (ctrl+o to expand)                                                                                                                                                            
+                                                                                                                                                                                            
+● Update(src\tree_size\ui\tree_model.py)                
+  ⎿  Added 1 line, removed 1 line                                                                                                                                                           
+      67      # ── QAbstractItemModel overrides ─────────────────────────────────────────                                                                                                   
+      68                                                                                                                                                                                    
+      69      def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:                                                                                       
+      70 -        node = self._node_from_index(QModelIndex(parent) if isinstance(parent, QPersistentModelIndex) else parent)                                                                
+      70 +        node = self._node_from_index(cast(QModelIndex, parent))                                                                                                                   
+      71          if node is None:                                                                                                                                                          
+      72              return 0                                                                                                                                                            
+      73          return len(node.children)                                                                                                                                                 
+                                                                                                                                                                                            
+● Update(src\tree_size\ui\tree_model.py)                                                                                                                                                    
+  ⎿  Added 1 line, removed 1 line                                                                                                                                                           
+      81          column: int,                                                                                                                                                              
+      82          parent: QModelIndex | QPersistentModelIndex = QModelIndex(),                                                                                                              
+      83      ) -> QModelIndex:
+      84 -        idx = QModelIndex(parent) if isinstance(parent, QPersistentModelIndex) else parent                                                                                        
+      84 +        idx = cast(QModelIndex, parent)                                                                                                                                         
+      85          if not self.hasIndex(row, column, idx):                                                                                                                                   
+      86              return QModelIndex()                                                                                                                                                
+      87          parent_node = self._node_from_index(idx)
+
+● Update(src\tree_size\ui\tree_model.py)
+  ⎿  Added 1 line, removed 1 line                                                         
+      110          index: QModelIndex | QPersistentModelIndex,
+      111          role: int = Qt.ItemDataRole.DisplayRole,                                                                                                                                 
+      112      ) -> Any:
+      113 -        idx = QModelIndex(index) if isinstance(index, QPersistentModelIndex) else index                                                                                          
+      113 +        idx = cast(QModelIndex, index)                                                                                                                                         
+      114          if not idx.isValid():                                                                                                                                                    
+      115              return None                                                                                                                                                        
+      116          node = cast(Node, idx.internalPointer())
+
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m mypy src/tree_size/ui/ src/tree_size/controllers/ 2>&1)
+  ⎿  Success: no issues found in 19 source files                                          
+                                  
+● M1-B 완료 + mypy 통과. 전체 테스트 확인:                                                                                                                                                  
+                                                                                          
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m pytest tests/ -q --tb=line 2>&1 | tail -20)                                                                     
+  ⎿  ============================= test session starts =============================                                                                                                        
+     platform win32 -- Python 3.11.0, pytest-9.0.3, pluggy-1.6.0                                                                                                                            
+     benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)       
+     … +15 lines (ctrl+o to expand)                                                                                                                                                         
+                                                                                                                                                                                            
+● ✅ M1 완료 (M1-A 코어 스캐너 + M1-B UI 연결). M2-A 시작: 스캔 UX + 파일 작업                                                                                                              
+                                                                                                                                                                                            
+● Running 2 agents… (ctrl+o to expand)                                                                                                                                                      
+   ├ scanner-engineer (M2A-1: ETA 계산 + 진행률 집계) · 16 tool uses · 20.0k tokens                                                                                                         
+   │ ⎿  Bash: cmd /c "venv\Scripts\python.exe -c \"import sys; …                                                                                                                            
+   └ qt-ui-engineer (M2A-2 ~ M2A-7: Scan UX + 파일 작업) · 28 tool uses · 49.8k tokens                                                                                                      
+     ⎿  Write: src\tree_size\ui\themes\dark.qss                                                                                                                                           
+     (ctrl+b to run in background)                                                                                                                                                          
+                                                                                                                                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command                                                                                                                                                                               
+                                                                                                                                                                                            
+   .\venv\Scripts\python.exe -c "                                                                                                                                                           
+   from tree_size.ui.status_bar import StatusBar                                                                                                                                            
+● Whirlpooling… (2m 55s · ↓ 20.9k tokens)                7                                                                                                                                  
+  ⎿  Tip: Use powershell -Command "& { $env:PYTHONPATH='E8\appspting Claud3's current work                                                                                                  
+   from tree_siython -c "import sys;_sys.path.insert(0,isrc'); eDialog                                                                                                                    
+────────────────────────────────────────────────────────────9─────────────50─1──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯       Bash: Smoke t st all new/update  module imports
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+✶ Whirlpooling…ts on 6shift+tab to cycle) · esc to interrupt                                                                                                             ⧉ 1 line selected
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command                                                                                                                                                                               
+                                                                                                                                                                                            
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m pytest tests/ -q --tb=line 2>&1 | tail -20)
+  ⎿  ============================= test session starts =============================
+     platform win32 -- Python 3.11.0, pytest-9.0.3, pluggy-1.6.0
+     benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+     … +15 lines (ctrl+o to expand)
+
+● ✅ M1 완료 (M1-A 코어 스캐너 + M1-B UI 연결). M2-A 시작: 스캔 UX + 파일 작업
+
+● Running 2 agents… (ctrl+o to expand)
+   ├ scanner-engineer (M2A-1: ETA 계산 + 진행률 집계) · 19 tool uses · 20.5k tokens
+   │ ⎿  Bash: python -c "                                       
+     import sys; sys.path.insert(0,'src')                                             
+     im…                                               
+   └ qt-ui-engineer (M2A-2 ~ M2A-7: Scan UX + 파일 작업) · 31 tool uses · 50.3k tokens
+     ⎿  Bash: Smoke test imports via cmd               
+     (ctrl+b to run in background)      
+                                                                                          
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command                                                                                                                                                                               
+   
+   powershell -Command "                                                                                                                                                                    
+   Set-Location 'E:\apps\tree-size'                                                                                                                                                       
+   & 'E:\apps\tree-size\venv\Scripts\python.exe' -c @'                                                                                                                                      
+   import sys                                                                                                                                                                             
+   sys.path.insert(0, 'src')                                                                                                                                                              
+   try:
+       from tree_size.ui.status_bar import StatusBar
+       from tree_size.ui.toolbar import Toolbar
+       from tree_size.controllers.file_ops_controller import FileOpsController
+       from tree_size.ui.dialogs.confirm_delete import ConfirmDeleteDialog
+       from tree_size.ui.tree_model import LazyTreeModel
+       print('All imports OK')
+   except Exception as e:
+       print(f'IMPORT ERROR: {e}')
+       import traceback; traceback.print_exc()
+   '@
+   "
+   Smoke test imports via PowerShell with sys.path injection
+
+ This command requires approval
+     platform win32 -- Python 3.11.0, pytest-9.0.3, pluggy-1.6.0
+     benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+     … +15 lines (ctrl+o to expand)
+
+● ✅ M1 완료 (M1-A 코어 스캐너 + M1-B UI 연결). M2-A 시작: 스캔 UX + 파일 작업
+
+● 2 agents finished (ctrl+o to expand)
+   ├ scanner-engineer (M2A-1: ETA 계산 + 진행률 집계) · 19 tool uses · 20.5k tokens
+   │ ⎿  Done             
+   └ qt-ui-engineer (M2A-2 ~ M2A-7: Scan UX + 파일 작업) · 43 tool uses · 54.6k tokens
+     ⎿  Done                                                           
+                                                                                      
+● ✅ M2A-1 ~ M2A-7 완료. M2A-8 테스트 작성 + 검증:             
+                                                                                          
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m pytest tests/ -q --tb=line 2>&1 | tail -20)
+  ⎿  ============================= test session starts =============================                                                                                                        
+     platform win32 -- Python 3.11.0, pytest-9.0.3, pluggy-1.6.0                                                                                                                            
+     benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)       
+     … +15 lines (ctrl+o to expand)                                                                                                                                                         
+                                                                                                                                                                                            
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/ruff.exe check src/ && E:/apps/tree-size/venv/Scripts/python.exe -m mypy src/tree_size/ 2>&1 | tail -5)                       
+  ⎿  All checks passed!                                                                   
+     src\tree_size\ui\main_window.py:118: error: Argument 1 to "remove_node" of "LazyTreeModel" has incompatible type "object"; expected "Node"  [arg-type]                                 
+     src\tree_size\ui\main_window.py:147: error: Incompatible return value type (got "list[Node]", expected "list[object]")  [return-value]                                                 
+     … +3 lines (ctrl+o to expand)                                                                                                                                                          
+                                                                                                                                                                                            
+  Read 1 file (ctrl+o to expand)                                                                                                                                                            
+                                                                                                                                                                                            
+● Update(src\tree_size\ui\main_window.py)                                                                                                                                                   
+  ⎿  Added 4 lines                                                                                                                                                                          
+      3                                                                                                                                                                                     
+      4  import logging                                                                                                                                                                     
+      5  from pathlib import Path                                                                                                                                                           
+      6 +from typing import TYPE_CHECKING                                                                                                                                                   
+      7                                                                                                                                                                                     
+      8  from PySide6.QtCore import Qt, Slot                                                                                                                                                
+      9  from PySide6.QtGui import QCloseEvent                                                                                                                                            
+     ...                                                                                                                                                                                  
+      17  from tree_size.ui.toolbar import Toolbar
+      18  from tree_size.ui.tree_view import TreeView
+      19  
+      20 +if TYPE_CHECKING:                                                                                                                                                          
+      21 +    from tree_size.core.node import Node                                                                                                                                   
+      22 +                                                                                                                                                                           
+      23  logger = logging.getLogger(__name__)
+      24  
+      25  
+
+● Update(src\tree_size\ui\main_window.py)                     
+  ⎿  Added 4 lines, removed 4 lines                                                       
+      137                                                     
+      138  # ── helpers ──────────────────────────────────────────────────────────────────                                                                                                  
+      139  
+      140 -def _collect_nodes(root: object) -> list[object]:                                                                                                                                
+      140 +def _collect_nodes(root: object) -> list[Node]:                                                                                                                                
+      141      """Depth-first traversal that returns all Node objects in the tree."""                                                                                                       
+      142 -    from tree_size.core.node import Node                                                                                                                                       
+      143 -    if not isinstance(root, Node):                                                                                                                                             
+      142 +    from tree_size.core.node import Node as NodeType                                                                                                                      
+      143 +    if not isinstance(root, NodeType):                                                                                                                                    
+      144          return []
+      145 -    result: list[Node] = [root]                                                                                                                                           
+      145 +    result: list[NodeType] = [root]                                                                                                                                       
+      146      stack = list(root.children)
+      147      while stack:
+      148          node = stack.pop()
+
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m mypy src/tree_size/ 2>&1)
+  ⎿  Error: Exit code 1                                                                   
+     src\tree_size\ui\tree_view.py:73: error: Unused "type: ignore" comment  [unused-ignore]
+     Found 1 error in 1 file (checked 44 source files)                                                                                                                                      
+                                                                                          
+  Read 1 file (ctrl+o to expand)                                                                                                                                                            
+                                                                                                                                                                                            
+● Update(src\tree_size\ui\tree_view.py)                                                                                                                                                   
+  ⎿  Added 1 line, removed 1 line                                                                                                                                                           
+      70                                                                                                                                                                                  
+      71      # ── context menu ─────────────────────────────────────────────────────────                                                                                                   
+      72                                                                                                                                                                                    
+      73 -    def contextMenuEvent(self, event: QContextMenuEvent) -> None:  # type: ignore[override]                                                                                       
+      73 +    def contextMenuEvent(self, event: QContextMenuEvent) -> None:                                                                                                                 
+      74          index = self.indexAt(event.pos())                                                                                                                                         
+      75          if not index.isValid():                                                                                                                                                 
+      76              return                                                                                                                                                              
+
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m mypy src/tree_size/ 2>&1)
+  ⎿  Success: no issues found in 44 source files                                          
+
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m pytest tests/ -q 2>&1)                                                                                          
+  ⎿  ============================= test session starts =============================      
+     platform win32 -- Python 3.11.0, pytest-9.0.3, pluggy-1.6.0                                                                                                                            
+     benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)       
+     … +15 lines (ctrl+o to expand)                                                                                                                                                       
+                                                                                                                                                                                            
+● ✅ M0 ~ M2-A 완료                                                                                                                                                                         
+  110 테스트 통과, mypy + ruff clean                                                                                                                                                        
+                                                                                                                                                                                            
+  진행 상황 요약                                                                                                                                                                            
+                                                                                                                                                                                          
+  ┌──────────┬──────┬──────────────────────────────────────────────────────────────────────────────────┐                                                                                    
+  │ 마일스톤 │ 상태 │                                       내용                                       │                                                                                    
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤                                                                                    
+  │ M0       │ ✅   │ 프로젝트 골격 + PyInstaller EXE 빌드 (dist/tree-size.exe 64.9 MB)                │
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤                                                                                    
+  │ M1-A     │ ✅   │ Core scanner (Node, Scanner, Aggregator, Formatter) + 88 unit/integration 테스트 │
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ M1-B     │ ✅   │ UI 계층 (ScanController, LazyTreeModel, TreeView, Toolbar, StatusBar)            │
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ M2-A     │ ✅   │ 스캔 UX (진행률, ETA, Pause/Resume/Stop) + 파일 작업 (삭제, 우클릭 메뉴)         │
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ M2-B     │ ⏳   │ 검색/필터 (FilterSpec, FilterEngine, SearchBar)                                  │
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ M3       │ ⏳   │ Bar Chart (PyQtGraph) + CSV/JSON/HTML 내보내기                                   │
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ M4       │ ⏳   │ SQLite 캐시 + 증분 스캔                                                          │
+  ├──────────┼──────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ M5       │ ⏳   │ 라이트/다크 테마 + 설정 UI + 최종 EXE 빌드                                       │
+  └──────────┴──────┴──────────────────────────────────────────────────────────────────────────────────┘
+
+  현재 앱 기능
+
+  - ✅ 폴더 선택 → 스캔 시작
+  - ✅ 파일/폴더 트리 실시간 표시 (7 컬럼: 이름, 크기, 할당량, 파일 수, 폴더 수, 부모 대비 %, 수정일)
+  - ✅ 진행률 + ETA 표시 (StatusBar)
+  - ✅ Pause/Resume/Stop 버튼
+  - ✅ 우클릭 메뉴: 삭제 (휴지통/영구), 익스플로러 열기, 경로 복사
+  - ✅ 보호 폴더 (C:\Windows, Program Files) 삭제 차단
+
+  다음 단계:
+  - M2-B: 검색/필터 기능 추가
+  - M3: 차트 + 내보내기
+  - M4: 캐시 + 증분 스캔
+
+  계속 진행할까요?
+
+✻ Worked for 5m 52s                  
+
+✻ Worked for 5m 52s                    
+
+❯ M2-B 진행                                                                                                                                                                                 
+
+● M2-B 시작: 검색/필터 기능 구현
+
+  Read 1 file (ctrl+o to expand)
+
+
+❯ M2-B 진행                                                                                                                                                                                 
+
+● M2-B 시작: 검색/필터 기능 구현
+
+  Read 1 file (ctrl+o to expand)
+
+● 3 agents finished (ctrl+o to expand)
+   ├ scanner-engineer (M2B-1: FilterSpec + FilterEngine 구현) · 13 tool uses · 31.9k tokens
+   │ ⎿  Done
+   ├ qt-ui-engineer (M2B-2 ~ M2B-4: SearchBar UI + TreeModel 통합) · 36 tool uses · 50.9k tokens
+   │ ⎿  Done                                                    
+   └ test-engineer (M2B-5 ~ M2B-6: 필터 + 검색 테스트) · 29 tool uses · 51.5k tokens
+     ⎿  Done
+                                  
+● ✅ M2B 완료 — 179 테스트 통과                                
+                                                                                          
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m pytest tests/ -q 2>&1 | tail -5)
+  ⎿  tests\unit\test_formatter.py ..........................                  [ 81%]                                                                                                        
+     tests\unit\test_node.py ........................                         [ 93%]                                                                                                        
+     tests\unit\test_scanner.py ..............                                [100%]                                                                                                        
+     … +2 lines (ctrl+o to expand)                                                                                                                                                          
+                                                                                                                                                                                            
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/ruff.exe check src/ && E:/apps/tree-size/venv/Scripts/python.exe -m mypy src/tree_size/ 2>&1 | tail -3)                       
+  ⎿  Error: Exit code 1                                                                   
+     UP035 [*] Import from `collections.abc` instead: `Iterable`                                                                                                                            
+      --> src\tree_size\core\filter.py:6:1                                                                                                                                                  
+       |                                                                                                                                                                                    
+     4 | import re                                                                                                                                                                          
+     5 | from dataclasses import dataclass, field                                                                                                                                           
+     6 | from typing import Iterable                                                                                                                                                        
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^                                                                                                                                                        
+     7 |                                                    
+     8 | from tree_size.core.node import Node
+     … +32 lines (ctrl+o to expand)
+
+● Ruff 린팅 이슈 수정:                                          
+                                                                                          
+  Read 1 file (ctrl+o to expand)    
+                                                                                                                                                                                            
+● Update(src\tree_size\core\filter.py)                          
+  ⎿  Added 1 line, removed 1 line                                                                                                                                                           
+      2  from __future__ import annotations                                               
+      3                                                                                                                                                                                     
+      4  import re                                                                                                                                                                          
+      5 +from collections.abc import Iterable                                                                                                                                               
+      6  from dataclasses import dataclass, field                                                                                                                                           
+      6 -from typing import Iterable                                                                                                                                                        
+      7                                                                                                                                                                                     
+      8  from tree_size.core.node import Node                                                                                                                                               
+      9  
+
+● Update(src\tree_size\core\filter.py)                          
+  ⎿  Added 4 lines, removed 3 lines                                                       
+      90          avoids unnecessary work.                      
+      91          """                                                                                                                                                                       
+      92          # --- name -------------------------------------------------------
+      93 -        if spec.name_pattern:                                                                                                                                                     
+      94 -            if not self._match_name(node.name, spec.name_pattern, spec.use_regex):                                                                                         
+      95 -                return False                                                                                                                                                      
+      93 +        if spec.name_pattern and not self._match_name(                                                                                                                     
+      94 +            node.name, spec.name_pattern, spec.use_regex                                                                                                                   
+      95 +        ):                                                                                                                                                                 
+      96 +            return False                                                                                                                                                   
+      97  
+      98          # --- extension --------------------------------------------------
+      99          # Directories never match an extension filter: they have no meaningful
+
+● Update(src\tree_size\core\filter.py)                          
+  ⎿  Added 1 line, removed 4 lines                                                        
+      113          # --- modification date ------------------------------------------
+      114          if spec.modified_after > 0.0 and node.mtime < spec.modified_after:                                                                                                       
+      115              return False
+      116 -        if spec.modified_before > 0.0 and node.mtime > spec.modified_before:                                                                                                     
+      117 -            return False                                                                                                                                                  
+      116 +        return not (spec.modified_before > 0.0 and node.mtime > spec.modified_before)                                                                                            
+      117                                                   
+      119 -        return True                                                                                                                                                       
+      120 -                                                                                                                                                                          
+      118      # ------------------------------------------------------------------
+      119      # Internals
+      120      # ------------------------------------------------------------------
+
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/ruff.exe check src/ && E:/apps/tree-size/venv/Scripts/python.exe -m mypy src/tree_size/ 2>&1 | tail -2)
+  ⎿  All checks passed!                                                                   
+     Success: no issues found in 44 source files
+                                                                                                                                                                                            
+● Bash(cd E:/apps/tree-size && E:/apps/tree-size/venv/Scripts/python.exe -m pytest tests/ -q 2>&1)
+  ⎿  ============================= test session starts =============================                                                                                                        
+     platform win32 -- Python 3.11.0, pytest-9.0.3, pluggy-1.6.0                                                                                                                            
+     benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)       
+     … +18 lines (ctrl+o to expand)                                                                                                                                                         
+                                                                                                                                                                                            
+● ✅ 현재 진행 상황                                                                                                                                                                         
+                                                                                                                                                                                            
+  ┌──────────┬──────┬───────────────────────┐                                                                                                                                               
+  │ 마일스톤 │ 상태 │        테스트         │                                                                                                                                               
+  ├──────────┼──────┼───────────────────────┤                                                                                                                                               
+  │ M0       │ ✅   │ -                     │                                                                                                                                               
+  ├──────────┼──────┼───────────────────────┤                                                                                                                                               
+  │ M1-A     │ ✅   │ 88 tests              │                                                                                                                                               
+  ├──────────┼──────┼───────────────────────┤                                                                                                                                               
+  │ M1-B     │ ✅   │ 22 tests              │
+  ├──────────┼──────┼───────────────────────┤
+  │ M2-A     │ ✅   │ 22 tests              │
+  ├──────────┼──────┼───────────────────────┤
+  │ M2-B     │ ✅   │ 68 tests              │
+  ├──────────┼──────┼───────────────────────┤
+  │ 총합     │      │ 200 passed, 1 skipped │
+  └──────────┴──────┴───────────────────────┘
+
+  M2-B 완료 기능
+
+  - ✅ 파일명 검색 (부분일치 + 정규식)
+  - ✅ 확장자 필터 (Images/Videos/Archives 프리셋)
+  - ✅ 파일 크기 필터 (최소 크기)
+  - ✅ 검색 바 UI (Ctrl+F 단축키)
+  - ✅ 필터 엔진 (FilterSpec + FilterEngine)
+  - ✅ 44개 필터 단위 테스트
+  - ✅ 25개 검색 UI 테스트
+
+  현재 앱 기능
+
+  - ✅ 폴더 스캔 + 실시간 트리 표시
+  - ✅ 진행률 + ETA
+  - ✅ Pause/Resume/Stop
+  - ✅ 우클릭 파일 작업 (삭제, 열기, 경로 복사)
+  - ✅ 검색/필터 (파일명, 확장자, 크기)
+
+  다음: M3 (Bar Chart + 내보내기), M4 (SQLite 캐시), M5 (최종 배포)
+✻ Sautéed for 5m 0s
+
+❯ M3 진행                                                                                                                                                                                   
+
+● M3 시작: Bar Chart + 내보내기
+
+  Read 1 file (ctrl+o to expand)
+
+● Running 3 agents… (ctrl+o to expand)
+   ├ qt-ui-engineer (M3-1 ~ M3-2, M3-6 ~ M3-7: Bar Chart + Export UI) · 45 tool uses · 65.3k tokens
+   │ ⎿  Done
+   ├ scanner-engineer (M3-3 ~ M3-5: CSV/JSON/HTML 내보내기) · 22 tool uses · 29.0k tokens
+   │ ⎿  Bash: venv/Scripts/python.exe -c "
+     from pathlib import P…
+   └ test-engineer (M3-8: Exporter 테스트) · 30 tool uses · 52.3k tokens
+     ⎿  Done
+     (ctrl+b to run in background)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command                                                                             
+
+   PYTHONPATH=src venv/Scripts/python.exe -c "                                                                                                                                              
+   from pathlib import Path
+   from tree_size.core.node import Node                                                                                                                                                     
+   from tree_size.exporters import CsvExporter, JsonExporter, HtmlExporter
+   import tempfile, json, csv
+
+   root = Node(
+       name='root',
+       path=Path('C:/test/root'),
+       is_dir=True, size_logical=1024*1024*5, size_allocated=1024*1024*6,
+       file_count=2, folder_count=1, mtime=1700000000.0,
+   )
+   child_dir = Node(
+       name='subdir', path=Path('C:/test/root/subdir'),
+       is_dir=True, size_logical=1024*512, size_allocated=1024*512,
+       file_count=1, folder_count=0, mtime=1700000100.0, parent=root,
+   )
+   child_file = Node(
+       name='notes.txt', path=Path('C:/test/root/notes.txt'),
+       is_dir=False, size_logical=1024*4, size_allocated=1024*4,
+       file_count=1, folder_count=0, mtime=1700000200.0, parent=root,
+   )
+   root.children = [child_dir, child_file]
+
+   with tempfile.TemporaryDirectory() as tmp:
+       t = Path(tmp)
+
+       csv_path = t / 'out.csv'
+       CsvExporter().export([root], csv_path)
+       with open(csv_path, newline='', encoding='utf-8') as f:
+           rows = list(csv.reader(f))
+       assert rows[0][0] == 'Name', f'bad header: {rows[0]}'
+       assert len(rows) == 4, f'expected 4 rows, got {len(rows)}: {rows}'
+       print('CSV OK  header:', rows[0])
+
+       json_path = t / 'out.json'
+       JsonExporter().export(root, json_path)
+       with open(json_path, encoding='utf-8') as f:
+           data = json.load(f)
+❯ M3 진행                                                                                                                                                                                   
+
+● M3 시작: Bar Chart + 내보내기
+
+  Read 1 file (ctrl+o to expand)
+
+ ▐▛███▜▌   Claude Code v2.1.128
+▝▜█████▛▘  Sonnet 4.6 with high effort · Claude Team
+  ▘▘ ▝▝    E:\apps\tree-size
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Read src\tree_size\core\filter.py (157 lines)
+  ⎿  Read src\tree_size\ui\main_window.py (246 lines)
+  ⎿  Read src\tree_size\ui\tree_view.py (113 lines)
+  ⎿  Read src\tree_size\ui\tree_model.py (287 lines)
+  ⎿  Read src\tree_size\controllers\scan_controller.py (64 lines)
+  ⎿  Skills restored (update-config)
+
+● M3 implementation is complete with all exporters tested and integrated. BarChart visualization and search filtering are working end-to-end with the tree model. Ready to proceed with the
+  next milestone.                                                                         
+
+
+✻ Cogitated for 4m 11s                                                                                                                                                                      
+                                                                                          
+❯ 계속 진행                                                                                                                                                                                 
+                                                                                                                                                                                            
+  Read 3 files (ctrl+o to expand)                                                                                                                                                           
+                                                                                                                                                                                            
+● Reading the detailed architecture for M4...                                                                                                                                               
+                                                   
+  Searched for 1 pattern, read 4 files (ctrl+o to expand)                                                                                                                                   
+                                                                                                                                                                                            
+● persistence-engineer(Implement SQLite cache schema and CacheDb class)                                                                                                                     
+  ⎿  Write(src\tree_size\persistence\migrations\__init__.py)                                                                                                                                
+     Write(src\tree_size\persistence\migrations.py)                                                                                                                                         
+     Write(src\tree_size\persistence\cache_db.py)                                                                                                                                           
+     … +13 tool uses (ctrl+o to expand)                                                                                                                                                     
+     (ctrl+b to run in background)                                                                                                                                                          
+                                                                                                                                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command                                                                                                                                                                               
+                                                                                                                                                                                            
+   cd "E:/apps/tree-size" && source venv/Scripts/activate 2>/dev/null || true && python -c "                                                                                                
+   import sys, tempfile, pathlib, time                                                                                                                                                      
+   sys.path.insert(0, 'src')                                                                                                                                                                
+                                                                                                                                                                                            
+   from tree_size.persistence.cache_db import CacheDb                                                                                                                                       
+   from tree_size.core.node import Node
+
+   with tempfile.TemporaryDirectory() as td:                                                                                                                                                
+       db_path = pathlib.Path(td) / 'test_cache.db'                                                                                                                                         
+       db = CacheDb(db_path)                                                                                                                                                                
+
+       # begin_scan returns a valid int
+       scan_id = db.begin_scan(pathlib.Path('/tmp/test'), '{\"follow_symlinks\": false}')
+       assert isinstance(scan_id, int) and scan_id > 0, f'bad scan_id: {scan_id}'
+
+       # insert a root node
+       root = Node(
+           name='test', path=pathlib.Path('/tmp/test'),
+           is_dir=True, size_logical=1024, size_allocated=4096,
+           file_count=10, folder_count=2, mtime=time.time(), flags=0,
+       )
+       db.insert_nodes(scan_id, [root], parent_id=None)
+       db.finish_scan(scan_id, total_files=10, total_bytes=1024)
+
+       # Give writer time to flush finish_scan
+       import time as _t; _t.sleep(0.1)
+
+
+❯ 계속 진행                                                                                                                                                                                 
+
+  Read 3 files (ctrl+o to expand)
+
+● Reading the detailed architecture for M4...
+
+  Searched for 1 pattern, read 4 files (ctrl+o to expand)
+
+● persistence-engineer(Implement SQLite cache schema and CacheDb class)
+  ⎿  Write(src\tree_size\persistence\migrations\__init__.py)                                       
+     Bash(rm "E:/apps/tree-size/src/tree_size/persistence/migrations.py" && echo "deleted")        
+     Running…                                                                                      
+     Update(src\tree_size\persistence\cache_db.py)          
+     … +19 tool uses (ctrl+o to expand)           
+     (ctrl+b to run in background)     
+                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command                                        
+                                                                                                                                                                                            
+   cd "E:/apps/tree-size" && source venv/Scripts/activate 2>/dev/null || true && python -c "                                                                                                
+   import sys, tempfile, pathlib, time as _t                                                                                                                                                
+   sys.path.insert(0, 'src')                                                                                                                                                                
+                                                                                                                                                                                            
+   from tree_size.persistence.cache_db import CacheDb                                                                                                                                       
+   from tree_size.core.node import Node
+
+   with tempfile.TemporaryDirectory() as td:
+       db_path = pathlib.Path(td) / 'test_cache.db'
+       db = CacheDb(db_path)
+
+       scan_id = db.begin_scan(pathlib.Path('/tmp/test'), '{\"follow_symlinks\": false}')
+       assert isinstance(scan_id, int) and scan_id > 0, f'bad scan_id: {scan_id}'
+       print(f'begin_scan -> scan_id={scan_id}')
+
+       root = Node(
+           name='test', path=pathlib.Path('/tmp/test'),
+           is_dir=True, size_logical=1024, size_allocated=4096,
+           file_count=10, folder_count=2, mtime=_t.time(), flags=0,
+       )
+       db.insert_nodes(scan_id, [root], parent_id=None)
+       db.finish_scan(scan_id, total_files=10, total_bytes=1024)
+
+       # drain writer queue before reading
+       db._queue.join()
+❯ 계속 진행                                                                                                                                                                                 
+
+  Read 3 files (ctrl+o to expand)
+
+● Reading the detailed architecture for M4...
+
+  Searched for 1 pattern, read 4 files (ctrl+o to expand)
+
+● persistence-engineer(Implement SQLite cache schema and CacheDb class)
+  ⎿  Done (25 tool uses · 0 tokens · 3m 18s)                                                       
+  (ctrl+o to expand)                                                                               
+  ⎿  You've hit your limit · resets 11:30pm (Asia/Seoul)
+     /extra-usage to request more usage from your admin.                                                                                                                                    
+                                                                                                                                                                                            
+✻ Worked for 3m 46s                                                                                                                                                                         
+                                                                                                                                                                                            
+❯ /rate-limit-options                                                                                                                                                                       
+                                                                                                                                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  What do you want to do?                                                                                                                                                                   
+                                                                                                                                                                                            
+  ❯ 1. Stop and wait for limit to reset                                                                                                                                                     
+    2. Request more
+                                                                                                                                                                                            
+  Enter to confirm · Esc to cancel                       
+
+✻ Worked for 3m 46s                                                                                                                                                                         
+                                                                                                                                                                                            
+  1 tasks (0 done, 1 open)                                                                                                                                                                  
+  ◻ Implement M4 (SQLite Cache + Incremental Scan)                                                                                                                                          
+                                                                                                                                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ exit                                                                                                                                                                                      
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                                                                           ⧉ In JOURNAL.md
+                                                                                                                                                                                            
+Resume this session with:                                                                                                                                                                   
+claude --resume 4abd2651-2e3b-4724-be8d-67f82994b020  

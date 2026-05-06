@@ -14,6 +14,7 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from tree_size.core.filter import FilterEngine, FilterSpec
 from tree_size.core.formatter import fmt_count, fmt_size
 from tree_size.core.node import Node
 
@@ -34,6 +35,9 @@ class LazyTreeModel(QAbstractItemModel):
         super().__init__(parent)
         self._root: Node | None = None
         self._pending: list[Node] = []
+        self._filter_spec: FilterSpec | None = None
+        # Flat list of nodes that passed the current filter; None = unfiltered.
+        self._filtered_nodes: list[Node] | None = None
 
     # ── public API ──────────────────────────────────────────────────────────
 
@@ -41,49 +45,120 @@ class LazyTreeModel(QAbstractItemModel):
         self.beginResetModel()
         self._root = root
         self._pending.clear()
+        self._filtered_nodes = None
         self.endResetModel()
 
     def clear(self) -> None:
         self.beginResetModel()
         self._root = None
         self._pending.clear()
+        self._filtered_nodes = None
         self.endResetModel()
+
+    def set_filter(self, spec: FilterSpec | None) -> None:
+        """Apply *spec* to the current tree and refresh the view.
+
+        When *spec* is None or empty the unfiltered tree is restored.
+        The filter runs synchronously on the UI thread; for trees up to a
+        few hundred-thousand nodes this is comfortably under 100 ms.
+        """
+        self._filter_spec = spec
+        if spec is not None and not spec.is_empty() and self._root is not None:
+            engine = FilterEngine()
+            all_nodes = self._collect_all_nodes(self._root)
+            self._filtered_nodes = engine.apply(all_nodes, spec)
+            logger.debug(
+                "Filter applied: %d/%d nodes match",
+                len(self._filtered_nodes),
+                len(all_nodes),
+            )
+        else:
+            self._filtered_nodes = None
+
+        self.beginResetModel()
+        self.endResetModel()
+
+    @property
+    def root_node(self) -> Node | None:
+        """Return the current root Node, or None when the model is empty."""
+        return self._root
 
     @Slot(object)
     def add_node(self, node: Node) -> None:
-        """Batch-accumulate nodes emitted by scanner; flush on timer."""
+        """Accumulate nodes emitted by the scanner; the QTimer flushes them."""
+        # Attach the first node as root if we don't have one yet
+        if self._root is None:
+            self._root = node
         self._pending.append(node)
 
     def flush_pending(self) -> None:
-        """Call from a QTimer to batch-insert accumulated nodes."""
+        """Batch-refresh the view after accumulating scanner nodes.
+
+        A full model reset is cheap enough at M2A; incremental row
+        insertion will be introduced in a later milestone when stable
+        node-ordering is established.
+        """
         if not self._pending or self._root is None:
             return
-        # For simplicity at M1-B, reset the model after each flush.
-        # M2-A will refine to incremental insertions.
         self._pending.clear()
         self.beginResetModel()
         self.endResetModel()
 
+    def remove_node(self, node: Node) -> None:
+        """Remove *node* from the tree after a successful file deletion.
+
+        Emits the standard beginRemoveRows / endRemoveRows pair so that
+        connected views update without a full model reset.
+        """
+        parent_node = node.parent
+        if parent_node is None:
+            # Removing the root — just clear everything
+            self.clear()
+            return
+        try:
+            row = parent_node.children.index(node)
+        except ValueError:
+            logger.warning("remove_node: node not found in parent.children: %s", node.path)
+            return
+
+        parent_index = self._index_for_node(parent_node)
+        self.beginRemoveRows(parent_index, row, row)
+        parent_node.children.pop(row)
+        self.endRemoveRows()
+
     # ── QAbstractItemModel overrides ─────────────────────────────────────────
 
-    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
-        node = self._node_from_index(QModelIndex(parent) if isinstance(parent, QPersistentModelIndex) else parent)
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:  # noqa: B008
+        p = cast(QModelIndex, parent)
+        # Filtered mode: flat list — only the invisible root has children.
+        if self._filtered_nodes is not None:
+            if p.isValid():
+                return 0
+            return len(self._filtered_nodes)
+        node = self._node_from_index(p)
         if node is None:
             return 0
         return len(node.children)
 
-    def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+    def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:  # noqa: B008
         return len(_HEADERS)
 
     def index(
         self,
         row: int,
         column: int,
-        parent: QModelIndex | QPersistentModelIndex = QModelIndex(),
+        parent: QModelIndex | QPersistentModelIndex = QModelIndex(),  # noqa: B008
     ) -> QModelIndex:
-        idx = QModelIndex(parent) if isinstance(parent, QPersistentModelIndex) else parent
+        idx = cast(QModelIndex, parent)
         if not self.hasIndex(row, column, idx):
             return QModelIndex()
+        # Filtered mode: flat list — all nodes are at row depth 0.
+        if self._filtered_nodes is not None:
+            if idx.isValid():
+                return QModelIndex()
+            if row >= len(self._filtered_nodes):
+                return QModelIndex()
+            return self.createIndex(row, column, self._filtered_nodes[row])
         parent_node = self._node_from_index(idx)
         if parent_node is None or row >= len(parent_node.children):
             return QModelIndex()
@@ -91,6 +166,9 @@ class LazyTreeModel(QAbstractItemModel):
 
     def parent(self, index: QModelIndex) -> QModelIndex:  # type: ignore[override]
         if not index.isValid():
+            return QModelIndex()
+        # In filtered mode every node is a top-level item.
+        if self._filtered_nodes is not None:
             return QModelIndex()
         node = cast(Node, index.internalPointer())
         p = node.parent
@@ -110,7 +188,7 @@ class LazyTreeModel(QAbstractItemModel):
         index: QModelIndex | QPersistentModelIndex,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
-        idx = QModelIndex(index) if isinstance(index, QPersistentModelIndex) else index
+        idx = cast(QModelIndex, index)
         if not idx.isValid():
             return None
         node = cast(Node, idx.internalPointer())
@@ -128,9 +206,12 @@ class LazyTreeModel(QAbstractItemModel):
         orientation: Qt.Orientation,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
-        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            if 0 <= section < len(_HEADERS):
-                return _HEADERS[section]
+        if (
+            orientation == Qt.Orientation.Horizontal
+            and role == Qt.ItemDataRole.DisplayRole
+            and 0 <= section < len(_HEADERS)
+        ):
+            return _HEADERS[section]
         return None
 
     # ── private helpers ──────────────────────────────────────────────────────
@@ -139,6 +220,32 @@ class LazyTreeModel(QAbstractItemModel):
         if not index.isValid():
             return self._root
         return cast(Node, index.internalPointer())
+
+    @staticmethod
+    def _collect_all_nodes(root: Node) -> list[Node]:
+        """Depth-first traversal; returns every node in the tree including root."""
+        result: list[Node] = [root]
+        stack = list(root.children)
+        while stack:
+            node = stack.pop()
+            result.append(node)
+            stack.extend(node.children)
+        return result
+
+    def _index_for_node(self, node: Node) -> QModelIndex:
+        """Return the QModelIndex that corresponds to *node*.
+
+        Returns an invalid (root-level) index when *node* is the root or
+        has no parent, because the root is not represented as a visible row.
+        """
+        if node is self._root or node.parent is None:
+            return QModelIndex()
+        parent = node.parent
+        try:
+            row = parent.children.index(node)
+        except ValueError:
+            return QModelIndex()
+        return self.createIndex(row, 0, node)
 
     def _display(self, node: Node, col: int) -> str:
         if col == _COL_NAME:
