@@ -62,6 +62,7 @@ TreeSize Free / WizTree의 오픈 대체재로 만들며, PyInstaller 단일 EXE
 - `persistence-engineer` — SQLite 스키마, WAL, 마이그레이션
 - `test-engineer` — pytest, pytest-qt, benchmark
 - `build-engineer` — PyInstaller spec, manifest, EXE smoke
+- `journal-engineer` — 세션 저널 작성 (`docs/journal/YYYY-MM-DD-NNN.md`)
 
 ## Slash Commands (사용자 정의)
 
@@ -70,6 +71,13 @@ TreeSize Free / WizTree의 오픈 대체재로 만들며, PyInstaller 단일 EXE
 - `/scan-perf [count]` — 합성 트리로 스캐너 성능 측정 (회귀 검사)
 - `/db-shell [query]` — 캐시 DB 검사 모드 (읽기 전용)
 - `/new-component <type> <ClassName>` — Qt 컴포넌트 스캐폴딩
+- `/journal [session-type]` — 현재 세션을 `docs/journal/YYYY-MM-DD-NNN.md`로 기록
+
+## 저널 시스템
+
+세션 기록은 두 단계로 관리된다:
+- **자동 (Stop hook)**: 세션 종료 시 `scripts/journal_hook.py`가 `docs/journal/activity.log`에 타임스탬프 1줄 기록
+- **수동 (`/journal`)**: `journal-engineer` agent가 결정·산출물·다음 단계를 구조화 마크다운으로 작성
 
 ## Development Setup
 
