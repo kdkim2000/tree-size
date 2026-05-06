@@ -12,14 +12,18 @@ from PySide6.QtWidgets import QMainWindow, QMessageBox, QSplitter, QWidget
 from tree_size.controllers.export_controller import ExportController
 from tree_size.controllers.file_ops_controller import FileOpsController
 from tree_size.controllers.scan_controller import ScanController
+from tree_size.controllers.settings_service import SettingsService
 from tree_size.core.filter import FilterSpec
 from tree_size.core.node import ScanOptions
 from tree_size.ui.bar_chart import BarChartPanel
 from tree_size.ui.dialogs.confirm_delete import ConfirmDeleteDialog
 from tree_size.ui.dialogs.export import ExportDialog
+from tree_size.ui.dialogs.settings import SettingsDialog
 from tree_size.ui.search_bar import SearchBar
 from tree_size.ui.status_bar import StatusBar
+from tree_size.ui.themes import theme_manager
 from tree_size.ui.toolbar import Toolbar
+from tree_size.ui.tree_model import set_icon_theme
 from tree_size.ui.tree_view import TreeView
 
 if TYPE_CHECKING:
@@ -33,11 +37,14 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.setWindowTitle("Tree-Size")
         self.resize(1200, 750)
+        self._settings = SettingsService(parent=self)
         self._controller = ScanController(parent=self)
         self._file_ops = FileOpsController(parent=self)
         self._export_ctrl = ExportController(parent=self)
         self._setup_ui()
         self._connect_signals()
+        # Apply the persisted theme on startup.
+        self._apply_theme(self._settings.resolve_theme())
 
     def _setup_ui(self) -> None:
         # Main toolbar
@@ -74,12 +81,13 @@ class MainWindow(QMainWindow):
         # SearchBar → TreeModel
         self._search_bar.filterChanged.connect(self._on_filter_changed)
 
-        # Toolbar → ScanController
+        # Toolbar → ScanController / Settings
         self._toolbar.scanRequested.connect(self._on_scan_requested)
         self._toolbar.pauseRequested.connect(self._controller.pause)
         self._toolbar.resumeRequested.connect(self._controller.resume)
         self._toolbar.stopRequested.connect(self._controller.cancel)
         self._toolbar.exportRequested.connect(self._on_export_requested)
+        self._toolbar.settingsRequested.connect(self._on_settings_requested)
 
         # ScanController → StatusBar / TreeView
         self._controller.progressUpdated.connect(
@@ -110,6 +118,9 @@ class MainWindow(QMainWindow):
         # ExportController → StatusBar
         self._export_ctrl.exportCompleted.connect(self._on_export_completed)
         self._export_ctrl.exportFailed.connect(self._on_export_failed)
+
+        # SettingsService → theme propagation (system theme change at OS level)
+        self._settings.themeChanged.connect(self._apply_theme)
 
     # ── scan slots ───────────────────────────────────────────────────────────
 
@@ -145,6 +156,26 @@ class MainWindow(QMainWindow):
             return
         node = self._tree_view.tree_model._node_from_index(current)
         self._bar_chart.set_node(node)
+
+    # ── settings slot ────────────────────────────────────────────────────────
+
+    @Slot()
+    def _on_settings_requested(self) -> None:
+        """Open the SettingsDialog; apply theme immediately if changed."""
+        dialog = SettingsDialog(self._settings, parent=self)
+        dialog.themeChanged.connect(self._apply_theme)
+        dialog.exec()
+
+    # ── theme application ────────────────────────────────────────────────────
+
+    @Slot(str)
+    def _apply_theme(self, theme: str) -> None:
+        """Apply *theme* ("light" or "dark") to QSS, icons, and chart colours."""
+        theme_manager.apply_theme(theme)
+        set_icon_theme(theme)
+        self._toolbar.apply_theme(theme)
+        self._bar_chart.apply_theme(theme)
+        logger.info("Theme applied: %s", theme)
 
     # ── export slots ─────────────────────────────────────────────────────────
 
@@ -225,6 +256,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._controller.cancel()
+        self._settings.sync()
         logger.info("MainWindow closing")
         super().closeEvent(event)
 

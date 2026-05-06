@@ -33,7 +33,7 @@ class _InsertScan:
     root_path: str
     started_at: int
     options_json: str
-    result_holder: "list[int]"   # writer fills result_holder[0] with lastrowid
+    result_holder: list[int]   # writer fills result_holder[0] with lastrowid
 
 
 @dataclass
@@ -76,7 +76,7 @@ def _get_reader_conn(db_path: str) -> sqlite3.Connection:
 # Writer loop (runs on its own daemon thread)
 # ---------------------------------------------------------------------------
 
-def _writer_loop(db_path: str, q: "queue.Queue[Any]") -> None:
+def _writer_loop(db_path: str, q: queue.Queue[Any]) -> None:
     """Drain the writer queue and execute commands against a dedicated connection."""
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode = WAL")
@@ -123,14 +123,36 @@ def _dispatch(conn: sqlite3.Connection, cmd: Any) -> None:
             conn.commit()
 
         case _InsertNodes(rows):
-            # Batch upsert; ON CONFLICT REPLACE keeps the index unique
-            conn.executemany(
-                "INSERT OR REPLACE INTO nodes"
-                " (scan_id, parent_id, name, path, is_dir,"
-                "  size_logical, size_allocated, file_count, folder_count, mtime, flags)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+            # Batch upsert with parent_id subquery resolution.
+            # Each row is (scan_id, parent_path_str|None, name, path, is_dir, size_logical, ...).
+            for row in rows:
+                scan_id, parent_path_str = row[0], row[1]
+                name, path, is_dir = row[2], row[3], row[4]
+                size_logical, size_allocated = row[5], row[6]
+                file_count, folder_count = row[7], row[8]
+                mtime, flags = row[9], row[10]
+
+                if parent_path_str:
+                    # Resolve parent_id via subquery.
+                    conn.execute(
+                        "INSERT OR REPLACE INTO nodes"
+                        " (scan_id, parent_id, name, path, is_dir,"
+                        "  size_logical, size_allocated, file_count, folder_count, mtime, flags)"
+                        " VALUES (?, (SELECT id FROM nodes WHERE scan_id=? AND path=?), ?, ?, ?,"
+                        "          ?, ?, ?, ?, ?, ?)",
+                        (scan_id, scan_id, parent_path_str, name, path, is_dir,
+                         size_logical, size_allocated, file_count, folder_count, mtime, flags),
+                    )
+                else:
+                    # No parent (root node).
+                    conn.execute(
+                        "INSERT OR REPLACE INTO nodes"
+                        " (scan_id, parent_id, name, path, is_dir,"
+                        "  size_logical, size_allocated, file_count, folder_count, mtime, flags)"
+                        " VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (scan_id, name, path, is_dir,
+                         size_logical, size_allocated, file_count, folder_count, mtime, flags),
+                    )
             conn.commit()
 
         case _:
@@ -168,7 +190,7 @@ _SELECT_NODE = (
 _SELECT_LAST_SCAN = (
     "SELECT id FROM scans"
     " WHERE root_path = ? AND finished_at IS NOT NULL"
-    " ORDER BY finished_at DESC"
+    " ORDER BY finished_at DESC, id DESC"
     " LIMIT 1"
 )
 
@@ -261,29 +283,32 @@ class CacheDb:
             )
         )
 
-    def insert_nodes(self, scan_id: int, nodes: list[Node], parent_id: int | None = None) -> None:
+    def insert_nodes(self, scan_id: int, nodes: list[Node]) -> None:
         """Queue a bulk insert of *nodes* belonging to *scan_id*.
 
-        ``parent_id`` is the DB id of the parent row (``None`` for root).
-        Note: caller is responsible for inserting parent before children so
-        the ``nodes.id`` foreign key is satisfied.
+        Parent ID is resolved from the node's parent.path via a subquery.
+        Assumes parent has already been inserted into this scan.
         """
-        rows = [
-            (
-                scan_id,
-                parent_id,
-                n.name,
-                str(n.path),
-                1 if n.is_dir else 0,
-                n.size_logical,
-                n.size_allocated,
-                n.file_count,
-                n.folder_count,
-                int(n.mtime),
-                n.flags,
+        rows = []
+        for n in nodes:
+            # If node has a parent, we'll resolve its DB id via subquery.
+            # Otherwise parent_id is None (root node).
+            parent_path_str: str | None = str(n.parent.path) if n.parent else None
+            rows.append(
+                (
+                    scan_id,
+                    parent_path_str,  # Will be resolved in _dispatch via subquery
+                    n.name,
+                    str(n.path),
+                    1 if n.is_dir else 0,
+                    n.size_logical,
+                    n.size_allocated,
+                    n.file_count,
+                    n.folder_count,
+                    int(n.mtime),
+                    n.flags,
+                )
             )
-            for n in nodes
-        ]
         self._queue.put(_InsertNodes(rows=rows))
 
     # ------------------------------------------------------------------

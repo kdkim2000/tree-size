@@ -2,9 +2,17 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 _APP_NAME = "TreeSize"
+
+
+def resource_path(relative: str) -> Path:
+    """Return absolute path to a bundled resource, works both in-source and PyInstaller onefile."""
+    # PyInstaller extracts to sys._MEIPASS at runtime
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent.parent.parent))
+    return base / relative
 
 
 def app_data_dir() -> Path:

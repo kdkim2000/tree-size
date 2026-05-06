@@ -5,12 +5,27 @@ import logging
 
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from tree_size.core.formatter import fmt_size
 from tree_size.core.node import Node
 
 logger = logging.getLogger(__name__)
+
+# Palette tokens — updated by apply_theme().
+_THEME_LIGHT = {
+    "background": "#ffffff",
+    "bar_brush": "#4a90d9",
+    "axis_pen": "#444444",
+    "text_color": "#333333",
+}
+_THEME_DARK = {
+    "background": "#2b2b2b",
+    "bar_brush": "#3a7abf",
+    "axis_pen": "#aaaaaa",
+    "text_color": "#cccccc",
+}
 
 
 class BarChartPanel(QWidget):
@@ -19,6 +34,7 @@ class BarChartPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._current_node: Node | None = None
+        self._palette: dict[str, str] = _THEME_LIGHT
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -36,10 +52,21 @@ class BarChartPanel(QWidget):
         self._plot.setLabel("bottom", "Child Item")
         self._plot.hideAxis("bottom")
         self._plot.setMenuEnabled(False)
-        self._plot.setBackground(None)   # inherit theme background
+        # Background is set explicitly so PyQtGraph does not paint its own
+        # default grey behind the QWidget-inherited background.
+        self._plot.setBackground(None)
         layout.addWidget(self._plot)
 
+        self._apply_palette()
+
     # ── public API ──────────────────────────────────────────────────────────
+
+    def apply_theme(self, theme: str) -> None:
+        """Switch colour palette when the application theme changes."""
+        self._palette = _THEME_DARK if theme == "dark" else _THEME_LIGHT
+        self._apply_palette()
+        # Re-render so bar colours update immediately.
+        self.set_node(self._current_node)
 
     def set_node(self, node: Node | None) -> None:
         """Refresh the chart to display *node*'s top 10 children by size."""
@@ -68,7 +95,7 @@ class BarChartPanel(QWidget):
             x=list(range(len(top10))),
             height=sizes_gb,
             width=0.6,
-            brush="#4a90d9",
+            brush=self._palette["bar_brush"],
         )
         self._plot.addItem(bars)
 
@@ -83,3 +110,14 @@ class BarChartPanel(QWidget):
         self._plot.setYRange(0, max_gb * 1.15)
 
         logger.debug("BarChartPanel: rendered %d children for %s", len(top10), node.name)
+
+    # ── private ──────────────────────────────────────────────────────────────
+
+    def _apply_palette(self) -> None:
+        """Push axis/label colours into the PyQtGraph plot widget."""
+        pen_color = QColor(self._palette["axis_pen"])
+        text_color = QColor(self._palette["text_color"])
+        for axis_name in ("left", "bottom"):
+            axis = self._plot.getAxis(axis_name)
+            axis.setPen(pen_color)
+            axis.setTextPen(text_color)

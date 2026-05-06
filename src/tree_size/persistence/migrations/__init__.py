@@ -9,6 +9,7 @@ through ``WriterQueue`` in ``cache_db``.
 """
 from __future__ import annotations
 
+import contextlib
 import importlib.resources
 import logging
 import sqlite3
@@ -87,10 +88,8 @@ def run_migrations(db_path: Path) -> None:
 
     except sqlite3.Error:
         logger.exception("Migration failed; rolling back")
-        try:
+        with contextlib.suppress(sqlite3.Error):
             conn.execute("ROLLBACK")
-        except sqlite3.Error:
-            pass
         raise
     finally:
         conn.close()

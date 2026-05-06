@@ -9,3 +9,4 @@ class WorkerSignals(QObject):
     progress = Signal(object)        # ProgressEvent
     finished = Signal(object)        # ScanResult
     error = Signal(str, object)      # message str, path Path
+    cacheWritten = Signal(int)       # scan_id (logging / debug use)

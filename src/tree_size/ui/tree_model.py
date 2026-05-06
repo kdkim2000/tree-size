@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from typing import Any, cast
 
+import qtawesome as qta
 from PySide6.QtCore import (
     QAbstractItemModel,
     QModelIndex,
@@ -13,12 +14,42 @@ from PySide6.QtCore import (
     Qt,
     Slot,
 )
+from PySide6.QtGui import QIcon
 
 from tree_size.core.filter import FilterEngine, FilterSpec
 from tree_size.core.formatter import fmt_count, fmt_size
 from tree_size.core.node import Node
 
 logger = logging.getLogger(__name__)
+
+# Icon cache keyed by (icon_name, color_hex).  Built lazily so that qtawesome
+# is only imported when a QApplication is already running.
+_icon_cache: dict[tuple[str, str], QIcon] = {}
+
+_ICON_FOLDER = "fa.folder"
+_ICON_FILE = "fa.file-o"
+_ICON_COLOR_LIGHT = "#5a7a9a"   # muted blue-grey for folder on light bg
+_ICON_COLOR_DARK = "#8ab0d0"    # lighter shade for dark bg
+_ICON_FILE_COLOR_LIGHT = "#777777"
+_ICON_FILE_COLOR_DARK = "#aaaaaa"
+
+# Module-level theme flag so the model can pick the right icon palette.
+_current_theme: str = "light"
+
+
+def set_icon_theme(theme: str) -> None:
+    """Called by MainWindow when the active theme changes."""
+    global _current_theme
+    _current_theme = theme
+    _icon_cache.clear()   # force regeneration with new colours
+
+
+def _get_icon(name: str, color: str) -> QIcon:
+    key = (name, color)
+    if key not in _icon_cache:
+        _icon_cache[key] = qta.icon(name, color=color)
+    return _icon_cache[key]
+
 
 _HEADERS = ["Name", "Size", "Allocated", "Files", "Folders", "% of Parent", "Last Modified"]
 _COL_NAME = 0
@@ -198,6 +229,8 @@ class LazyTreeModel(QAbstractItemModel):
             return self._display(node, col)
         if role == Qt.ItemDataRole.UserRole:
             return self._sort_key(node, col)
+        if role == Qt.ItemDataRole.DecorationRole and col == _COL_NAME:
+            return self._node_icon(node)
         return None
 
     def headerData(
@@ -246,6 +279,15 @@ class LazyTreeModel(QAbstractItemModel):
         except ValueError:
             return QModelIndex()
         return self.createIndex(row, 0, node)
+
+    @staticmethod
+    def _node_icon(node: Node) -> QIcon:
+        is_dark = _current_theme == "dark"
+        if node.is_dir:
+            color = _ICON_COLOR_DARK if is_dark else _ICON_COLOR_LIGHT
+            return _get_icon(_ICON_FOLDER, color)
+        color = _ICON_FILE_COLOR_DARK if is_dark else _ICON_FILE_COLOR_LIGHT
+        return _get_icon(_ICON_FILE, color)
 
     def _display(self, node: Node, col: int) -> str:
         if col == _COL_NAME:
