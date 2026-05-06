@@ -16,7 +16,7 @@ _COLOR_NORMAL = "#444444"
 _COLOR_DARK = "#dddddd"
 
 
-def _icon(name: str, color: str) -> "qta.icon":  # type: ignore[name-defined]
+def _icon(name: str, color: str) -> qta.icon:
     return qta.icon(name, color=color)
 
 
@@ -44,20 +44,20 @@ class Toolbar(QToolBar):
 
     def _refresh_icons(self) -> None:
         c = self._icon_color
-        self._act_open.setIcon(_icon("fa.folder-open", c))
+        self._act_open.setIcon(_icon("fa5s.folder-open", c))
         self._act_refresh.setIcon(_icon("fa5s.sync-alt", c))
-        self._act_pause.setIcon(_icon("fa.pause", c))
-        self._act_resume.setIcon(_icon("fa.play", c))
-        self._act_stop.setIcon(_icon("fa.stop", c))
-        self._act_export.setIcon(_icon("fa.download", c))
-        self._act_settings.setIcon(_icon("fa.cog", c))
+        self._act_pause.setIcon(_icon("fa5s.pause", c))
+        self._act_resume.setIcon(_icon("fa5s.play", c))
+        self._act_stop.setIcon(_icon("fa5s.stop", c))
+        self._act_export.setIcon(_icon("fa5s.download", c))
+        self._act_settings.setIcon(_icon("fa5s.cog", c))
 
     # ── construction ─────────────────────────────────────────────────────────
 
     def _build_actions(self) -> None:
         c = self._icon_color
 
-        self._act_open = QAction(_icon("fa.folder-open", c), "Open Folder", parent=self)
+        self._act_open = QAction(_icon("fa5s.folder-open", c), "Open Folder", parent=self)
         self._act_open.setShortcut(QKeySequence("Ctrl+O"))
         self._act_open.setToolTip("Choose a folder to scan (Ctrl+O)")
         self._act_open.triggered.connect(self._on_open)
@@ -71,19 +71,19 @@ class Toolbar(QToolBar):
 
         self.addSeparator()
 
-        self._act_pause = QAction(_icon("fa.pause", c), "Pause", parent=self)
+        self._act_pause = QAction(_icon("fa5s.pause", c), "Pause", parent=self)
         self._act_pause.setToolTip("Pause the running scan")
         self._act_pause.triggered.connect(self._on_pause)
         self._act_pause.setEnabled(False)
         self.addAction(self._act_pause)
 
-        self._act_resume = QAction(_icon("fa.play", c), "Resume", parent=self)
+        self._act_resume = QAction(_icon("fa5s.play", c), "Resume", parent=self)
         self._act_resume.setToolTip("Resume a paused scan")
         self._act_resume.triggered.connect(self._on_resume)
         self._act_resume.setEnabled(False)
         self.addAction(self._act_resume)
 
-        self._act_stop = QAction(_icon("fa.stop", c), "Stop", parent=self)
+        self._act_stop = QAction(_icon("fa5s.stop", c), "Stop", parent=self)
         self._act_stop.setToolTip("Cancel the running scan")
         self._act_stop.triggered.connect(self._on_stop)
         self._act_stop.setEnabled(False)
@@ -91,7 +91,7 @@ class Toolbar(QToolBar):
 
         self.addSeparator()
 
-        self._act_export = QAction(_icon("fa.download", c), "Export", parent=self)
+        self._act_export = QAction(_icon("fa5s.download", c), "Export", parent=self)
         self._act_export.setShortcut(QKeySequence("Ctrl+E"))
         self._act_export.setToolTip("Export results (Ctrl+E)")
         self._act_export.triggered.connect(self._on_export)
@@ -100,7 +100,7 @@ class Toolbar(QToolBar):
 
         self.addSeparator()
 
-        self._act_settings = QAction(_icon("fa.cog", c), "Settings", parent=self)
+        self._act_settings = QAction(_icon("fa5s.cog", c), "Settings", parent=self)
         self._act_settings.setShortcut(QKeySequence("Ctrl+,"))
         self._act_settings.setToolTip("Open settings (Ctrl+,)")
         self._act_settings.triggered.connect(self._on_settings)
