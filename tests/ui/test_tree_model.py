@@ -160,3 +160,140 @@ class TestLazyTreeModel:
         assert model.data(QModelIndex()) is None, (
             "data() for QModelIndex() must return None"
         )
+
+
+class TestLazyTreeModelPostOrder:
+    """Tests that verify correct behavior when nodes arrive in DFS post-order.
+
+    The scanner emits nodes children-first; the true root (parent=None) arrives
+    last.  These tests exercise the bug-fix that changed the add_node() guard
+    from ``if self._root is None`` to ``if node.parent is None``.
+    """
+
+    @pytest.fixture
+    def model(self, qtbot: object) -> LazyTreeModel:  # type: ignore[type-arg]
+        return LazyTreeModel()
+
+    @pytest.fixture
+    def post_order_nodes(self) -> tuple[Node, Node, Node]:
+        """Build a 3-node tree and return nodes in DFS post-order emission order.
+
+        Tree layout:
+            root/        (parent=None)
+            └── dir_a/   (parent=root)
+                └── file_b.txt (parent=dir_a)
+
+        Post-order emission: file_b → dir_a → root
+        """
+        root = Node(
+            name="root",
+            path=Path("C:/test/root"),
+            is_dir=True,
+            size_logical=2048,
+            size_allocated=4096,
+            file_count=1,
+            folder_count=1,
+            mtime=0.0,
+            parent=None,
+        )
+        dir_a = Node(
+            name="dir_a",
+            path=Path("C:/test/root/dir_a"),
+            is_dir=True,
+            size_logical=1024,
+            size_allocated=2048,
+            file_count=1,
+            folder_count=0,
+            mtime=0.0,
+            parent=root,
+        )
+        file_b = Node(
+            name="file_b.txt",
+            path=Path("C:/test/root/dir_a/file_b.txt"),
+            is_dir=False,
+            size_logical=512,
+            size_allocated=512,
+            file_count=1,
+            folder_count=0,
+            mtime=0.0,
+            parent=dir_a,
+        )
+        dir_a.children.append(file_b)
+        root.children.append(dir_a)
+        # Return in scanner emission order: deepest leaf first, root last.
+        return file_b, dir_a, root
+
+    def test_post_order_root_detection_sets_correct_root(
+        self, model: LazyTreeModel, post_order_nodes: tuple[Node, Node, Node]
+    ) -> None:
+        """add_node() + flush_pending() must identify the node with parent=None
+        as the root, even though it arrives last in the emission sequence."""
+        file_b, dir_a, root_node = post_order_nodes
+
+        # Emit in scanner post-order: children before parent.
+        model.add_node(file_b)
+        model.add_node(dir_a)
+        model.add_node(root_node)
+        model.flush_pending()
+
+        assert model.root_node is root_node, (
+            "root_node must be the node whose parent is None, not the first node received"
+        )
+
+    def test_post_order_root_row_count(
+        self, model: LazyTreeModel, post_order_nodes: tuple[Node, Node, Node]
+    ) -> None:
+        """After post-order add_node() + flush_pending(), rowCount at the
+        invisible root level must equal the number of root's direct children (1)."""
+        file_b, dir_a, root_node = post_order_nodes
+
+        model.add_node(file_b)
+        model.add_node(dir_a)
+        model.add_node(root_node)
+        model.flush_pending()
+
+        assert model.rowCount(QModelIndex()) == 1, (
+            "Root should have exactly 1 visible child (dir_a); "
+            f"got {model.rowCount(QModelIndex())}"
+        )
+
+    def test_post_order_full_tree_display(
+        self, model: LazyTreeModel, post_order_nodes: tuple[Node, Node, Node]
+    ) -> None:
+        """The full two-level tree must be navigable after post-order emission.
+
+        - Level 0 (children of root): 1 row — dir_a
+        - Level 1 (children of dir_a): 1 row — file_b.txt
+        """
+        file_b, dir_a, root_node = post_order_nodes
+
+        model.add_node(file_b)
+        model.add_node(dir_a)
+        model.add_node(root_node)
+        model.flush_pending()
+
+        root_row_count = model.rowCount(QModelIndex())
+        assert root_row_count == 1, (
+            f"Expected 1 child of root (dir_a), got {root_row_count}"
+        )
+
+        dir_a_index = model.index(0, 0, QModelIndex())
+        assert dir_a_index.isValid(), "Index for dir_a must be valid"
+
+        dir_a_node: Node = dir_a_index.internalPointer()  # type: ignore[assignment]
+        assert dir_a_node.name == "dir_a", (
+            f"Expected first child to be 'dir_a', got '{dir_a_node.name}'"
+        )
+
+        dir_a_row_count = model.rowCount(dir_a_index)
+        assert dir_a_row_count == 1, (
+            f"Expected 1 child of dir_a (file_b.txt), got {dir_a_row_count}"
+        )
+
+        file_b_index = model.index(0, 0, dir_a_index)
+        assert file_b_index.isValid(), "Index for file_b.txt must be valid"
+
+        file_b_node: Node = file_b_index.internalPointer()  # type: ignore[assignment]
+        assert file_b_node.name == "file_b.txt", (
+            f"Expected leaf node to be 'file_b.txt', got '{file_b_node.name}'"
+        )

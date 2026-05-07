@@ -1,5 +1,8 @@
 venv/
 build/
+!build/*.spec
+!build/*.txt
+!build/*.manifest
 dist/
 *.spec.bak
 
