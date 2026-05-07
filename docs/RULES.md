@@ -197,8 +197,26 @@ class ScanController(QObject):
 
 ---
 
-## 10. 변경 이력
+## 10. 빌드 규칙
+
+### R-B1. PyInstaller 진입점은 `__main__.py`
+* `build/tree-size.spec`의 `Analysis([...])` 첫 인수는 반드시 `src/tree_size/__main__.py`.
+* `app.py`를 진입점으로 쓰면 `run()`이 정의만 되고 호출되지 않아 EXE가 무증상으로 exit 0.
+* **이유**: 실제 버그 B-3 — 빌드 성공, 스모크 통과처럼 보이지만 창이 열리지 않음.
+
+### R-B2. 번들 리소스 경로는 `resource_path()` 또는 `_get_themes_dir()` 사용
+* `Path(__file__).parent` 로 QSS / 이미지 경로를 직접 구성하면 onefile EXE 내부에서 실패.
+* `utils.paths.resource_path()` 또는 `sys._MEIPASS` 분기를 사용한다.
+
+### R-B3. `build/*.spec`, `build/*.txt`, `build/*.manifest`는 git 추적
+* `.gitignore`의 `build/` 예외 규칙 (`!build/*.spec` 등)을 유지.
+* 스펙 파일은 빌드 절차의 소스코드로 관리한다.
+
+---
+
+## 11. 변경 이력
 
 | 버전 | 일자 | 변경 |
 |------|------|------|
 | 0.1 | 2026-05-06 | 초안 — 35개 규칙 정의 |
+| 0.2 | 2026-05-08 | §10 빌드 규칙 추가 (R-B1~R-B3) — post-M5 버그 B-3/B-2 교훈 반영 |

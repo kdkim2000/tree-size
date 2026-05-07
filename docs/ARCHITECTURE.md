@@ -182,13 +182,13 @@ class Node:
     name: str
     path: Path
     is_dir: bool
-    size_logical: int           # mtime의 stat_result.st_size 합
-    size_allocated: int         # NTFS 실제 할당 크기 합
+    size_logical: int           # stat_result.st_size 합산
+    size_allocated: int         # NTFS 실제 할당 크기 합산
     file_count: int
     folder_count: int
     mtime: float
-    children_loaded: bool = False
     parent: "Node | None" = None
+    children: list["Node"] = field(default_factory=list)
 ```
 
 ### 4.4 `workers.ScanWorker`
@@ -204,8 +204,9 @@ class Node:
 ### 4.5 `ui.tree_model.LazyTreeModel`
 
 * `QAbstractItemModel`을 직접 구현(QStandardItemModel 미사용 — 100만 노드 시 성능/메모리 이슈 회피).
-* 자식 노드는 **lazy-load**: `hasChildren()`이 True여도 `rowCount()`는 사용자가 펼쳤을 때만 SQLite 또는 메모리에서 채운다.
-* `dataChanged` 시그널을 배치(throttled, 100ms)로 emit하여 렌더링 비용 최소화.
+* 스캔 중 `add_node(node)` 슬롯으로 노드를 누적하고, 100ms 타이머(`flush_pending()`)로 배치 `beginResetModel/endResetModel` 하여 렌더링 비용 최소화.
+* **DFS 후위순회(post-order) 중요**: Scanner는 자식을 먼저 emit하고 루트를 마지막에 emit한다. `add_node()`는 `node.parent is None`일 때만 `_root`를 설정하므로, 스캔 완료 전까지는 루트가 None이고 `rowCount()`가 0을 반환(정상 동작).
+* 필터 적용 시 평면 리스트 모드로 전환되어 트리 계층 없이 검색 결과만 표시.
 
 ### 4.6 `controllers.ScanController`
 
@@ -305,13 +306,17 @@ CREATE INDEX idx_nodes_size ON nodes(size_logical DESC);
 
 ```
 User clicks "Open Folder"
-  → MainWindow.on_open()
+  → MainWindow._on_scan_requested()
   → ScanController.start(path, options)
   → ScanWorker submitted to QThreadPool
-  → Scanner.scan() runs, emits nodeReady/progress
-  → LazyTreeModel.append_node()  (UI thread, batched)
-  → StatusBar.update_progress()
-  → BarChart.refresh()  (debounced, 200ms)
+  → Scanner.scan() runs (DFS post-order)
+      자식 노드 emit → 부모 노드 emit → 루트 emit (마지막)
+  → nodeReady Signal (QueuedConnection) → LazyTreeModel.add_node()
+      자식/중간: _pending 누적 (root=None → flush skip)
+      루트 도착: _root 설정
+  → 100ms QTimer → flush_pending() → beginResetModel/endResetModel
+  → StatusBar.on_progress()
+  → 스캔 완료: scanFinished → stop_scan() → 최종 flush_pending()
 ```
 
 ### 7.2 파일 작업
@@ -332,18 +337,26 @@ User right-clicks node → "Move to Recycle Bin"
 * `ui.themes.theme_manager`가 QSS 파일을 로드하여 `QApplication.setStyleSheet()` 호출.
 * 시작 시 `SettingsService`에서 마지막 테마 로드(`light` / `dark` / `system`).
 * `system` 모드는 Windows 레지스트리 `HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme`를 폴링(또는 `QStyleHints.colorSchemeChanged` 시그널).
-* 아이콘은 qtawesome으로 동적 색상 적용.
+* 아이콘은 qtawesome(FontAwesome 5, 접두어 `fa5s.`)으로 동적 색상 적용.
+* **PyInstaller onefile 경로 해결**: `_get_themes_dir()` 함수가 `sys._MEIPASS` 존재 여부를 검사하여 번들 내 QSS 경로를 반환. 소스 실행 시에는 `Path(__file__).parent` 사용.
+  ```python
+  def _get_themes_dir() -> Path:
+      if hasattr(sys, "_MEIPASS"):
+          return Path(sys._MEIPASS) / "tree_size" / "ui" / "themes"
+      return Path(__file__).parent
+  ```
 
 ---
 
 ## 9. 로깅 & 에러 처리
 
-* `utils.logging_setup.configure()`에서 root logger 설정.
+* `utils.logging_setup.setup_logging()`에서 root logger 설정. `app.py`의 `_bootstrap_logging()`이 `QApplication` 생성 전 가장 먼저 호출한다.
 * 핸들러:
-  * `RotatingFileHandler` — `%LOCALAPPDATA%\TreeSize\logs\app.log` (10MB × 5)
-  * `StreamHandler` — 콘솔(개발 모드)
+  * `RotatingFileHandler` — `%LOCALAPPDATA%\TreeSize\logs\tree-size.log` (5MB × 3)
+  * `StreamHandler(sys.stderr)` — WARNING 이상만 (개발 모드 / 콘솔 실행 시)
+* 환경 변수 `TREESIZE_LOG_LEVEL` (기본 `INFO`)로 로그 레벨 제어 가능.
 * 워커 내 미잡힌 예외는 `WorkerSignals.error.emit(str(e), path)`로 UI에 전달 → 상태바에 비파괴적으로 표시.
-* UI 스레드의 미잡힌 예외는 `sys.excepthook` 후크로 다이얼로그 표시 + 로그.
+* **windowed EXE 주의**: `--windowed`(noconsole) 빌드에서 stderr는 사용자에게 보이지 않으므로 파일 핸들러가 유일한 진단 수단.
 
 ---
 
@@ -365,12 +378,14 @@ User right-clicks node → "Move to Recycle Bin"
 
 ### 11.1 `build/tree-size.spec` (PyInstaller)
 
+* **진입점**: `src/tree_size/__main__.py` — `sys.exit(run())`을 직접 호출. `app.py`를 진입점으로 쓰면 `run()`이 정의만 되고 호출되지 않아 EXE가 임포트 4초 후 exit 0으로 종료된다.
 * `--onefile` + `--noconsole` (`--windowed`)
 * `--icon resources/tree-size.ico`
-* `--add-data resources;resources`
-* Hidden imports: `PySide6.QtCharts`, `pyqtgraph`
+* datas: `tree_size/ui/themes/*.qss`, `resources/`, `qtawesome/fonts/`
+* Hidden imports: `PySide6.QtCharts`, `pyqtgraph`, `send2trash` 등
 * `version_info.txt`로 버전/회사/파일 설명 메타데이터 부착
 * UPX 압축은 비활성(Windows Defender 오탐 가능성)
+* `build/tree-size.spec`, `build/version_info.txt`, `build/tree-size.manifest`는 git 추적 대상 (`.gitignore`에 `!build/*.spec` 예외 추가)
 
 ### 11.2 빌드 명령
 
@@ -448,6 +463,9 @@ pyinstaller>=6.6
 | ADR-4 | `os.scandir` + 선택적 Win32 | `pathlib.Path.stat()` | scandir이 1.5~3배 빠름 |
 | ADR-5 | PyInstaller `--onefile` | `--onedir`, MSI | 일반 사용자 배포 단순성 |
 | ADR-6 | UI 영문 전용 | i18n | v1.0 단순화, 추후 추가 가능 |
+| ADR-7 | PyInstaller 진입점: `__main__.py` | `app.py` | `app.py`는 `run()`을 정의만 하고 호출하지 않아 EXE가 즉시 종료됨. `__main__.py`가 `sys.exit(run())` 호출의 유일한 지점. |
+| ADR-8 | Scanner DFS 후위순회 emit | 전위순회 | 부모 노드는 모든 자식 합산 후 크기 확정. 자식 먼저 emit → 루트 마지막 emit. `add_node()`는 `node.parent is None`으로 루트 감지. |
+| ADR-9 | 테마 경로 `sys._MEIPASS` 분기 | `Path(__file__).parent` 고정 | onefile EXE 내부의 `__file__`은 실제 파일시스템 경로가 아님. `_MEIPASS` 조건부로 QSS 파일 위치 결정. |
 
 ---
 
@@ -456,3 +474,4 @@ pyinstaller>=6.6
 | 버전 | 일자 | 변경 내용 |
 |------|------|----------|
 | 0.1 | 2026-05-06 | 초안. PRD 0.1과 정합. |
+| 0.2 | 2026-05-08 | M5 구현 반영. Node 구조(`children_loaded` → `children` list), LazyTreeModel DFS post-order 동작(ADR-8), 테마 경로 `sys._MEIPASS` 분기(ADR-9), PyInstaller 진입점 `__main__.py`(ADR-7), 로그 파일명 수정(`app.log` → `tree-size.log`, 5MB×3), 스캔 흐름 정확화, ADR-7~9 추가. |
