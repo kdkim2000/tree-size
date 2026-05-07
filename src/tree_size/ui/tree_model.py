@@ -117,8 +117,9 @@ class LazyTreeModel(QAbstractItemModel):
     @Slot(object)
     def add_node(self, node: Node) -> None:
         """Accumulate nodes emitted by the scanner; the QTimer flushes them."""
-        # Attach the first node as root if we don't have one yet
-        if self._root is None:
+        # Scanner emits DFS post-order (children before parent).
+        # The true root is the only node with parent=None, emitted last.
+        if node.parent is None:
             self._root = node
         self._pending.append(node)
 

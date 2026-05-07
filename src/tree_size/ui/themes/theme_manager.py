@@ -2,18 +2,25 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
 logger = logging.getLogger(__name__)
 
-_THEMES_DIR = Path(__file__).parent
+
+def _get_themes_dir() -> Path:
+    # PyInstaller onefile: extracted files land under sys._MEIPASS
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "tree_size" / "ui" / "themes"  # type: ignore[attr-defined]
+    return Path(__file__).parent
 
 
 def apply_theme(name: str = "light") -> None:
     """Apply a named theme to the running QApplication."""
-    qss_path = _THEMES_DIR / f"{name}.qss"
+    themes_dir = _get_themes_dir()
+    qss_path = themes_dir / f"{name}.qss"
     if not qss_path.exists():
         logger.warning("Theme file not found: %s", qss_path)
         return
@@ -25,4 +32,4 @@ def apply_theme(name: str = "light") -> None:
 
 
 def available_themes() -> list[str]:
-    return [p.stem for p in _THEMES_DIR.glob("*.qss")]
+    return [p.stem for p in _get_themes_dir().glob("*.qss")]
